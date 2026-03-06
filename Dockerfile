@@ -1,5 +1,5 @@
-# Use the official Node.js image with Debian Buster or Bullseye (for easier dependency installation)
-FROM node:20-bullseye-slim
+# Use the official Node.js image with Debian Bookworm (Python 3.11)
+FROM node:20-bookworm-slim
 
 # Install necessary tools: Python, FFmpeg, and dependencies for Chromium/Puppeteer
 RUN apt-get update \
