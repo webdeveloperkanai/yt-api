@@ -1,5 +1,7 @@
 import { exec } from 'youtube-dl-exec';
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * GET /api/stream?url=<encoded_video_url>&type=video|audio
@@ -20,6 +22,10 @@ export async function GET(req: NextRequest) {
 
     const isAudio = type === 'audio';
 
+    // Check if we have a cookies.txt file in the root to bypass YouTube bot detection
+    const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+    const hasCookies = fs.existsSync(cookiesPath);
+
     const options: Record<string, any> = {
         noCheckCertificates: true,
         noWarnings: true,
@@ -28,6 +34,7 @@ export async function GET(req: NextRequest) {
             'referer:youtube.com',
             'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
         ],
+        ...(hasCookies ? { cookies: cookiesPath } : {})
     };
 
     if (isAudio) {
