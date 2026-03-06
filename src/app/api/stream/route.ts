@@ -40,47 +40,22 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const ytDlpProcess = exec(url, options);
-
-        if (!ytDlpProcess.stdout) {
-            throw new Error('yt-dlp stdout is null');
-        }
-
-        const readable = new ReadableStream({
-            start(controller) {
-                ytDlpProcess.stdout!.on('data', (chunk) => {
-                    controller.enqueue(chunk);
-                });
-                ytDlpProcess.stdout!.on('end', () => {
-                    controller.close();
-                });
-                ytDlpProcess.stdout!.on('error', (err) => {
-                    controller.error(err);
-                });
-                ytDlpProcess.on('error', (err) => {
-                    console.error('Stream process error:', err);
-                    controller.error(err);
-                });
-            },
-            cancel() {
-                ytDlpProcess.kill();
-            }
+        const info: any = await exec(url, {
+            dumpSingleJson: true,
+            noCheckCertificates: true,
+            noWarnings: true,
+            ...options
         });
 
-        const headers = new Headers();
-        if (isAudio) {
-            headers.set('Content-Type', 'audio/mpeg');
-        } else {
-            headers.set('Content-Type', 'video/mp4');
+        if (!info || !info.url) {
+            throw new Error('Could not extract direct URL');
         }
-        // No Content-Disposition header → browser plays inline instead of downloading
-        headers.set('Cache-Control', 'no-cache');
-        headers.set('Transfer-Encoding', 'chunked');
-        headers.set('X-Content-Type-Options', 'nosniff');
 
-        return new NextResponse(readable, { status: 200, headers });
+        // Redirect the client to the direct media URL.
+        // The browser will handle HTTP Range requests natively.
+        return NextResponse.redirect(info.url, 302);
     } catch (err: any) {
-        console.error('Stream error:', err);
-        return NextResponse.json({ error: err.message || 'Failed to stream' }, { status: 500 });
+        console.error('Stream redirect error:', err);
+        return NextResponse.json({ error: err.message || 'Failed to get stream URL' }, { status: 500 });
     }
 }
