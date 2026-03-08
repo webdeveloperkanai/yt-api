@@ -7,6 +7,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const url = searchParams.get('url');
     const type = searchParams.get('type') || 'video';
+    const res = searchParams.get('res') || '720';
+    const height = parseInt(res, 10) || 720;
 
     if (!url) {
         return NextResponse.json({ error: 'URL is required' }, { status: 400 });
@@ -43,11 +45,19 @@ export async function GET(req: NextRequest) {
             return NextResponse.redirect(directUrl, 302);
         }
 
-        // Video 720p: get separate video + audio URLs, merge with ffmpeg
+        // For low resolutions (<= 360), try pre-muxed format first (e.g. format 18 for 360p)
+        // Otherwise, use merging with a cap. Added broad fallbacks for robustness.
+        let formatStr = `bestvideo[height<=${height}][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=${height}]+bestaudio[ext=m4a]/bestvideo[height<=${height}]+bestaudio/bestvideo[height<=${height}]+bestaudio/bestvideo+bestaudio/best`;
+
+        if (height <= 360) {
+            // Priority: best single file <= requested height, then falling back to merged if needed
+            formatStr = `best[height<=${height}]/bestvideo[height<=${height}]+bestaudio/bestvideo+bestaudio/best`;
+        }
+
         const urls = await getUrls(ytDlpBin, [
             ...baseArgs,
             '--get-url',
-            '--format', 'bestvideo[height<=720][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=720]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio',
+            '--format', formatStr,
             url,
         ]);
 

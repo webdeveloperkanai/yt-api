@@ -28,6 +28,8 @@ async function searchYouTube(query: string, limit: number) {
                     ? [{ url: entry.thumbnail }]
                     : [{ url: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` }];
 
+        const resolutions = [360, 480, 720, 1080];
+
         return {
             id: videoId,
             url: videoUrl,
@@ -42,6 +44,15 @@ async function searchYouTube(query: string, limit: number) {
                 url: entry.channel_url ?? null,
             },
             platform: 'youtube',
+            formats: resolutions.map(res => ({
+                quality: `${res}p`,
+                stream: `/api/stream?url=${encodeURIComponent(videoUrl)}&res=${res}`,
+                download: `/api/download?url=${encodeURIComponent(videoUrl)}&res=${res}`
+            })),
+            audio: {
+                stream: `/api/stream?url=${encodeURIComponent(videoUrl)}&type=audio`,
+                download: `/api/download?url=${encodeURIComponent(videoUrl)}&type=audio`
+            }
         };
     });
 }

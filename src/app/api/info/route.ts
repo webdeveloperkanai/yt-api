@@ -22,7 +22,23 @@ export async function GET(req: NextRequest) {
       ]
     });
 
-    return NextResponse.json(info);
+    const resolutions = [360, 480, 720, 1080];
+    const formattedLinks = {
+      video: resolutions.map(res => ({
+        quality: `${res}p`,
+        stream: `/api/stream?url=${encodeURIComponent(url)}&res=${res}`,
+        download: `/api/download?url=${encodeURIComponent(url)}&res=${res}`
+      })),
+      audio: {
+        stream: `/api/stream?url=${encodeURIComponent(url)}&type=audio`,
+        download: `/api/download?url=${encodeURIComponent(url)}&type=audio`
+      }
+    };
+
+    return NextResponse.json({
+      ...(info as any),
+      formattedLinks
+    });
   } catch (err: any) {
     console.error('yt-dlp error:', err);
     return NextResponse.json({ error: err.message || 'Failed to fetch info' }, { status: 500 });
