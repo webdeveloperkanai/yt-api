@@ -393,7 +393,7 @@ export default function Home() {
                               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                               {downloadingFormat === "video" ? <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" /> : <Video className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />}
                               <span className="font-medium text-sm text-gray-200">{downloadingFormat === "video" ? "Preparing..." : "Download Video"}</span>
-                              <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">MP4 High Quality</span>
+                              <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">MP4 720p HD</span>
                             </button>
                             <button onClick={() => handleDownload("audio")} disabled={downloadingFormat !== null} className="relative overflow-hidden group glass border-white/10 hover:border-purple-500/50 rounded-xl p-4 flex flex-col items-center gap-2 transition-all hover:-translate-y-1">
                               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />

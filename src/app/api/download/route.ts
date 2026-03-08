@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
         options.audioFormat = 'mp3';
         options.format = 'bestaudio/best';
     } else {
-        // for video, typically getting mp4
-        options.format = 'best[ext=mp4]/best';
+        // for video, typically getting mp4, limited to 720p
+        options.format = 'best[height<=720][ext=mp4]/best[height<=720]/best';
     }
 
     try {

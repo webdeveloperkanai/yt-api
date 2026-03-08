@@ -43,11 +43,11 @@ export async function GET(req: NextRequest) {
             return NextResponse.redirect(directUrl, 302);
         }
 
-        // Video 1080p: get separate video + audio URLs, merge with ffmpeg
+        // Video 720p: get separate video + audio URLs, merge with ffmpeg
         const urls = await getUrls(ytDlpBin, [
             ...baseArgs,
             '--get-url',
-            '--format', 'bestvideo[height<=1080][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio',
+            '--format', 'bestvideo[height<=720][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=720]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio',
             url,
         ]);
 
