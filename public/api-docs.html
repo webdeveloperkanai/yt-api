@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT-DL Streaming API Documentation</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --primary: #3b82f6;
+            --primary-hover: #60a5fa;
+            --accent: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --radius: 12px;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font);
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2.5rem 1rem;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #60a5fa, #f43f5e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            padding: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.8rem;
+        }
+
+        .endpoint {
+            margin-bottom: 1.5rem;
+            padding: 1.2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            transition: transform 0.2s;
+        }
+
+        .endpoint:hover {
+            transform: translateX(5px);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .endpoint.audio-feature {
+            border-left-color: var(--accent);
+            background: rgba(244, 63, 94, 0.05);
+        }
+
+        .endpoint h3 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0.8rem;
+        }
+
+        .method {
+            background: var(--primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        .url {
+            font-family: monospace;
+            color: #fbbf24;
+            font-size: 1.1rem;
+        }
+
+        .desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 0.8rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        td:first-child {
+            font-family: monospace;
+            color: #a78bfa;
+            font-weight: bold;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #0f172a;
+            color: white;
+            font-family: var(--font);
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button.accent {
+            background: var(--accent);
+            box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.2);
+        }
+
+        button.accent:hover {
+            background: #e11d48;
+        }
+
+        button.success {
+            background: #10b981;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+
+        button.success:hover {
+            background: #059669;
+        }
+
+        .result-box {
+            background: #020617;
+            color: #38bdf8;
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            max-height: 400px;
+            white-space: pre-wrap;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .result-box::before {
+            content: "JSON Output";
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--surface-hover);
+            color: var(--text-muted);
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            border-bottom-left-radius: 8px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px;
+            border-radius: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab.active {
+            color: white;
+            background: var(--surface-hover);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .player-container {
+            margin-top: 1rem;
+            background: #020617;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: #000;
+        }
+
+        .audio-wrapper {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+        }
+
+        audio {
+            width: 80%;
+            margin-top: 2rem;
+            border-radius: 8px;
+        }
+
+        .audio-icon {
+            color: var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .code-snippet {
+            background: #000;
+            color: #10b981;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            border: 1px solid #334155;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>YT-DL Streaming API</h1>
+        <p class="subtitle">Integration Documentation & Developer Playground</p>
+        <p style="font-size: 1rem; margin-top: 15px; color: var(--text-muted);">Convert and stream videos or audio on
+            the fly for your next project.</p>
+    </header>
+
+    <div class="container">
+        <!-- Documentation Column -->
+        <div class="card">
+            <h2>API Endpoints</h2>
+
+            <!-- MASSIVE STREAMING API CALLOUT -->
+            <div class="endpoint"
+                style="border: 2px solid #10b981; background: rgba(16, 185, 129, 0.1); padding: 2rem; transform: scale(1.02); margin-bottom: 2.5rem; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);">
+                <div
+                    style="background: #10b981; color: #000; display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 1px;">
+                    ⭐ Main Feature</div>
+                <h3 style="font-size: 1.8rem; margin-bottom: 1rem; color: white;">
+                    <span class="method" style="background: #10b981; font-size: 1.2rem; padding: 5px 15px;">GET</span>
+                    <span class="url" style="color: #34d399;">/api/stream</span>
+                </h3>
+                <p class="desc" style="font-size: 1.1rem; color: #f8fafc; margin-bottom: 1.5rem;">
+                    <strong>DIRECT VIDEO & AUDIO STREAMING API:</strong> Use this endpoint to instantly play YouTube
+                    videos or audio in your own application <em>without proxying or downloading</em> the entire file
+                    first.
+                </p>
+
+                <div
+                    style="background: #020617; border: 1px solid #334155; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4
+                        style="color: var(--text-muted); margin-bottom: 0.8rem; font-size: 0.9rem; text-transform: uppercase;">
+                        Exact API Usage (Copy & Paste)</h4>
+                    <pre style="margin: 0; white-space: pre-wrap;"><code style="color: #60a5fa; font-family: 'Fira Code', monospace; font-size: 1.1rem;">// To stream Video:
+http://localhost:3000/api/stream?url=YOUTUBE_URL&res=720</code></pre>
+                </div>
+
+                <div
+                    style="background: #020617; border: 1px solid #334155; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4
+                        style="color: var(--text-muted); margin-bottom: 0.8rem; font-size: 0.9rem; text-transform: uppercase;">
+                        In your HTML Project</h4>
+                    <pre
+                        style="margin: 0; white-space: pre-wrap;"><code style="color: #a78bfa; font-family: 'Fira Code', monospace; font-size: 1rem;">&lt;video controls src="http://localhost:3000/api/stream?url=YOUTUBE_URL&res=720"&gt;&lt;/video&gt;</code></pre>
+                </div>
+
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td>string</td>
+                        <td>Full YouTube URL <strong>(Required)</strong></td>
+                    </tr>
+                    <tr>
+                        <td>type</td>
+                        <td>string</td>
+                        <td>'video' (Default) or 'audio'</td>
+                    </tr>
+                    <tr>
+                        <td>res</td>
+                        <td>string</td>
+                        <td>Resolution e.g., '720', '1080', '360'</td>
+                    </tr>
+                </table>
+            </div>
+            <!-- END MASSIVE STREAMING API CALLOUT -->
+
+            <div class="endpoint" style="border-left-color: var(--accent); background: rgba(244, 63, 94, 0.05);">
+                <h3><span class="method" style="background: var(--accent);">GET</span><span
+                        class="url">/api/stream?type=audio</span></h3>
+                <p class="desc"><strong>Audio Only Stream:</strong> Instantly stream the best available audio directly.
+                </p>
+                <div
+                    style="background: #020617; border: 1px solid #334155; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                    <code
+                        style="color: #f43f5e; font-family: monospace;">&lt;audio controls src="http://localhost:3000/api/stream?url=YOUTUBE_URL&type=audio"&gt;&lt;/audio&gt;</code>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method">GET</span><span class="url">/api/search</span></h3>
+                <p class="desc">Search for videos.</p>
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>q</td>
+                        <td>string</td>
+                        <td>Search query <strong>(Required)</strong></td>
+                    </tr>
+                    <tr>
+                        <td>limit</td>
+                        <td>number</td>
+                        <td>Max results (Default 10, Max 30)</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method">GET</span><span class="url">/api/info</span></h3>
+                <p class="desc">Get detailed metadata for a URL.</p>
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td>string</td>
+                        <td>Full URL <strong>(Required)</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method">GET</span><span class="url">/api/links</span></h3>
+                <p class="desc">Extract available direct format links bypass stream proxy.</p>
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td>string</td>
+                        <td>Full URL <strong>(Required)</strong></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="endpoint" style="border-left-color: #a78bfa; background: rgba(167, 139, 250, 0.06);">
+                <h3><span class="method" style="background: #7c3aed;">GET</span><span class="url" style="color: #c4b5fd;">/api/raw</span></h3>
+                <p class="desc"><strong>Raw YouTube CDN URLs:</strong> Returns direct <code style="color:#fbbf24">googlevideo.com</code> stream URLs for every available video and audio format — no proxy, straight from YouTube's servers.</p>
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td>string</td>
+                        <td>Full YouTube URL <strong>(Required)</strong></td>
+                    </tr>
+                </table>
+                <div style="background:#020617; border:1px solid #334155; padding:1rem; border-radius:8px; margin-top:1rem;">
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.5rem;">Response shape:</p>
+                    <code style="color:#a78bfa; font-family:monospace; font-size:0.82rem; white-space:pre-wrap">{\n  rawVideo: [{ quality, resolution, fps, ext, vcodec, acodec, size, url }],\n  rawAudio: [{ quality, ext, acodec, abr, size, url }]\n}</code>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <h3><span class="method">GET</span><span class="url">/api/download</span></h3>
+                <p class="desc">Force direct file download (Sets Content-Disposition attachment).</p>
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>url</td>
+                        <td>string</td>
+                        <td>Full URL <strong>(Required)</strong></td>
+                    </tr>
+                    <tr>
+                        <td>type</td>
+                        <td>string</td>
+                        <td>'video' or 'audio'</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Playground Column -->
+        <div class="card">
+            <h2>Live Streaming Test Player</h2>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('search')">Search</div>
+                <div class="tab" onclick="switchTab('info')">Metadata</div>
+                <div class="tab" onclick="switchTab('stream')" style="color: var(--accent);">Stream / Play</div>
+                <div class="tab" onclick="switchTab('raw')" style="color: #a78bfa;">Raw URLs</div>
+            </div>
+
+            <!-- Search Tab -->
+            <div id="tab-search" class="tab-content">
+                <input type="text" id="searchInput" placeholder="Enter search query (e.g. NCS release)">
+                <button onclick="testSearch()">Search Videos</button>
+            </div>
+
+            <!-- Info Tab -->
+            <div id="tab-info" class="tab-content" style="display: none;">
+                <input type="text" id="infoInput" placeholder="Enter Video URL">
+                <button onclick="testInfo()">Extract Metadata</button>
+            </div>
+
+            <!-- Stream Tab -->
+            <div id="tab-stream" class="tab-content" style="display: none;">
+                <input type="text" id="streamInput" placeholder="Enter Video URL">
+                <select id="streamType">
+                    <option value="audio">Audio Only Stream (Fast)</option>
+                    <option value="video">Video & Audio Stream</option>
+                </select>
+                <div style="display:flex; gap: 10px;">
+                    <button class="accent" onclick="testAPIStream()">Start Stream</button>
+                    <button class="success" onclick="testDownload()">Test Download</button>
+                </div>
+
+                <div class="player-container">
+                    <div id="videoUrlDisplay"
+                        style="display: none; width: 100%; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; font-family: monospace; color: #fbbf24; font-size: 0.85rem; border: 1px solid var(--border); word-break: break-all; text-align: center; z-index: 10;">
+                        <!-- Video URL will appear here -->
+                    </div>
+                    <video id="videoPlayer" controls></video>
+
+                    <div class="audio-wrapper" id="audioWrapper">
+                        <svg class="audio-icon" width="64" height="64" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                            <path
+                                d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z">
+                            </path>
+                        </svg>
+                        <h3 style="color: white; margin-top: 15px; font-weight: 500;">Live Audio Stream</h3>
+                        <div id="audioUrlDisplay"
+                            style="margin-top: 10px; background: #000; padding: 8px 15px; border-radius: 6px; font-family: monospace; color: #fbbf24; font-size: 0.85rem; border: 1px solid var(--border); word-break: break-all; text-align: center; width: 90%;">
+                            <!-- Audio URL will appear here -->
+                        </div>
+                        <audio id="audioPlayer" controls></audio>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Raw URLs Tab -->
+            <div id="tab-raw" class="tab-content" style="display: none;">
+                <input type="text" id="rawInput" placeholder="Enter YouTube Video URL">
+                <button style="background:#7c3aed; box-shadow:0 4px 6px -1px rgba(124,58,237,0.3);" onclick="testRaw()">Fetch Raw URLs</button>
+                <div id="rawResult" style="display:none; margin-top:1rem;"></div>
+            </div>
+
+            <div style="margin-top: 2rem;">
+                <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.8rem;">Console Output</h3>
+                <div class="result-box" id="jsonResult">
+                    // Ready. Search or extract a URL to begin testing.
+                    // Hint: Audio streams are direct and fast.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.origin;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+
+            document.getElementById('tab-' + tabId).style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        async function testSearch() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return alert('Enter a query');
+
+            const resultBox = document.getElementById('jsonResult');
+            resultBox.innerHTML = 'Fetching search results...';
+
+            try {
+                const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(query)}&limit=2`);
+                const data = await res.json();
+                resultBox.innerHTML = JSON.stringify(data, null, 2);
+
+                if (data.results && data.results.length > 0) {
+                    document.getElementById('streamInput').value = data.results[0].url;
+                    document.getElementById('infoInput').value = data.results[0].url;
+                }
+            } catch (err) {
+                resultBox.innerHTML = `Error: ${err.message}`;
+            }
+        }
+
+        async function testInfo() {
+            const url = document.getElementById('infoInput').value;
+            if (!url) return alert('Enter a URL');
+
+            const resultBox = document.getElementById('jsonResult');
+            resultBox.innerHTML = 'Extracting metadata, formats, and API links...';
+
+            try {
+                const res = await fetch(`${BASE_URL}/api/info?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+
+                if (data.formats) data.formats = `[Array of ${data.formats.length} Raw Format Objects - Hidden for brevity]`;
+                if (data.thumbnails) data.thumbnails = `[Array of ${data.thumbnails.length} Thumbnails - Hidden]`;
+
+                resultBox.innerHTML = JSON.stringify(data, null, 2);
+            } catch (err) {
+                resultBox.innerHTML = `Error: ${err.message}`;
+            }
+        }
+
+        function testAPIStream() {
+            const url = document.getElementById('streamInput').value;
+            const type = document.getElementById('streamType').value;
+            if (!url) return alert('Enter a URL');
+
+            const video = document.getElementById('videoPlayer');
+            const audio = document.getElementById('audioPlayer');
+            const audioWrapper = document.getElementById('audioWrapper');
+            const resultBox = document.getElementById('jsonResult');
+
+            const streamUrl = `${BASE_URL}/api/stream?url=${encodeURIComponent(url)}&type=${type}`;
+
+            video.pause();
+            audio.pause();
+            video.style.display = 'none';
+            audioWrapper.style.display = 'none';
+
+            if (type === 'audio') {
+                audio.src = streamUrl;
+                audioWrapper.style.display = 'flex';
+                document.getElementById('audioUrlDisplay').innerText = streamUrl;
+                audio.play().catch(e => console.error('Auto-play prevent:', e));
+
+                resultBox.innerHTML = `// HTML Audio Stream Initialization\nconst audioStreamUrl = "${streamUrl}";\n\nconst audioObj = new Audio(audioStreamUrl);\naudioObj.play();\n\n// Or direct HTML:\n<audio src="${streamUrl}" controls></audio>`;
+
+            } else {
+                video.src = streamUrl;
+
+                const videoUrlDisplay = document.getElementById('videoUrlDisplay');
+                videoUrlDisplay.style.display = 'block';
+                videoUrlDisplay.innerText = streamUrl;
+
+                video.style.display = 'block';
+                video.play().catch(e => console.error('Auto-play prevent:', e));
+
+                resultBox.innerHTML = `// HTML Video Stream Initialization\n<video src="${streamUrl}" controls></video>`;
+            }
+        }
+
+        function testDownload() {
+            const url = document.getElementById('streamInput').value;
+            const type = document.getElementById('streamType').value;
+            if (!url) return alert('Enter a URL');
+            const dlUrl = `${BASE_URL}/api/download?url=${encodeURIComponent(url)}&type=${type}`;
+            window.open(dlUrl, '_blank');
+        }
+        async function testRaw() {
+            const url = document.getElementById('rawInput').value.trim();
+            if (!url) return alert('Enter a YouTube URL');
+
+            const resultBox = document.getElementById('jsonResult');
+            const rawResult = document.getElementById('rawResult');
+            rawResult.style.display = 'none';
+            resultBox.innerHTML = 'Fetching raw YouTube CDN URLs...';
+
+            try {
+                const res = await fetch(`${BASE_URL}/api/raw?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                resultBox.innerHTML = JSON.stringify(data, null, 2);
+
+                if (!data.success) return;
+
+                const makeCard = (label, list, color) => {
+                    if (!list || list.length === 0) return '';
+                    const rows = list.map(f => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #1e293b;gap:8px;">
+                            <div>
+                                <span style="color:${color};font-weight:700;font-size:0.95rem;">${f.quality || 'unknown'}</span>
+                                ${f.resolution ? `<span style="color:#94a3b8;font-size:0.8rem;margin-left:8px;">${f.resolution}</span>` : ''}
+                                ${f.fps ? `<span style="color:#64748b;font-size:0.8rem;margin-left:6px;">${f.fps}fps</span>` : ''}
+                                <span style="color:#64748b;font-size:0.78rem;margin-left:8px;">${f.ext}</span>
+                                ${f.size ? `<span style="color:#475569;font-size:0.78rem;margin-left:8px;">${f.size}</span>` : ''}
+                            </div>
+                            <a href="${f.url}" target="_blank" style="background:${color};color:#000;padding:5px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">Open ↗</a>
+                        </div>`).join('');
+                    return `<div style="margin-bottom:1.2rem;">
+                        <p style="color:${color};font-weight:700;font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem;">${label}</p>
+                        <div style="background:#020617;border:1px solid #1e293b;border-radius:10px;overflow:hidden;">${rows}</div>
+                    </div>`;
+                };
+
+                rawResult.innerHTML = `
+                    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:1.2rem;">
+                        <p style="font-weight:700;color:#f8fafc;margin-bottom:1rem;font-size:1rem;">${data.metadata?.title || 'Video'}</p>
+                        ${makeCard('📹 Raw Video Streams', data.rawVideo, '#60a5fa')}
+                        ${makeCard('🔊 Raw Audio Streams', data.rawAudio, '#f43f5e')}
+                    </div>`;
+                rawResult.style.display = 'block';
+
+            } catch (err) {
+                resultBox.innerHTML = `Error: ${err.message}`;
+            }
+        }
+    </script>
+</body>
+
+</html>

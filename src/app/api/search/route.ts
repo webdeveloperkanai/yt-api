@@ -34,6 +34,7 @@ async function searchYouTube(query: string, limit: number) {
             id: videoId,
             url: videoUrl,
             streamUrl: `/api/stream?url=${encodeURIComponent(videoUrl)}`,
+            rawUrl: `/api/raw?url=${encodeURIComponent(videoUrl)}`,
             title: entry.title,
             thumbnails,
             duration: entry.duration ?? null,
