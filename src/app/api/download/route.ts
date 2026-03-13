@@ -1,6 +1,8 @@
 import { exec } from 'youtube-dl-exec';
 import { NextRequest, NextResponse } from 'next/server';
-import { Readable } from 'stream';
+import path from 'path';
+import fs from 'fs';
+import { pushLog } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -11,17 +13,25 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
+    const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+    const hasCookies = fs.existsSync(cookiesPath);
+
     const res = searchParams.get('res') || '720';
     const height = parseInt(res, 10) || 720;
-
     const isAudio = type === 'audio';
+
+    const logType = isAudio ? 'download-audio' : 'download-video';
+    const startMs = Date.now();
+
+    pushLog({ type: logType, url, status: 'started' });
 
     const options: Record<string, any> = {
         noCheckCertificates: true,
         noWarnings: true,
+        ...(hasCookies ? { cookies: cookiesPath } : {}),
         addHeader: [
-            'referer:youtube.com',
-            'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+            'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'referer:https://www.facebook.com/',
         ],
         output: '-', // stream to stdout
     };
@@ -31,7 +41,6 @@ export async function GET(req: NextRequest) {
         options.audioFormat = 'mp3';
         options.format = 'bestaudio/best';
     } else {
-        // for video, typically getting mp4, limited to requested resolution, with robust fallbacks
         options.format = `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`;
     }
 
@@ -42,20 +51,28 @@ export async function GET(req: NextRequest) {
             throw new Error('yt-dlp stdout is null');
         }
 
-        // Convert Node.js Readable stream into Web ReadableStream
+        let totalBytes = 0;
+
         const readable = new ReadableStream({
             start(controller) {
                 ytDlpProcess.stdout!.on('data', (chunk) => {
+                    totalBytes += chunk.length;
                     controller.enqueue(chunk);
                 });
                 ytDlpProcess.stdout!.on('end', () => {
                     controller.close();
+                    pushLog({
+                        type: logType,
+                        url,
+                        status: 'completed',
+                        detail: `${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
+                        durationMs: Date.now() - startMs,
+                    });
                 });
                 ytDlpProcess.stdout!.on('error', (err) => {
                     controller.error(err);
+                    pushLog({ type: logType, url, status: 'error', detail: err.message, durationMs: Date.now() - startMs });
                 });
-
-                // Handle process exit / errors
                 ytDlpProcess.on('error', (err) => {
                     console.error('Process error:', err);
                     controller.error(err);
@@ -76,8 +93,10 @@ export async function GET(req: NextRequest) {
         }
 
         return new NextResponse(readable, { headers });
+
     } catch (err: any) {
         console.error('Download error:', err);
+        pushLog({ type: logType, url, status: 'error', detail: err.message, durationMs: Date.now() - startMs });
         return NextResponse.json({ error: err.message || 'Failed to download' }, { status: 500 });
     }
 }

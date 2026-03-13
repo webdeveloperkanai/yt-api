@@ -6,12 +6,14 @@ A sleek, modern web app built with **Next.js** that lets you download video and 
 
 ## ✨ Features
 
-- **Paste & Fetch** — Paste any video URL to instantly retrieve title, thumbnail, duration, and platform info
-- **Download Video** — Downloads the best available MP4 quality
-- **Download Audio** — Extracts and downloads audio as MP3 at the highest bitrate
-- **Multi-platform support** — YouTube, TikTok, Facebook, and [1000+ sites supported by yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
-- **URL Cleanup** — Automatically strips tracking parameters from YouTube links
-- **Animated UI** — Smooth transitions with Framer Motion and a glassmorphism dark theme
+- **Paste & Fetch** — Paste any video URL to instantly retrieve title, thumbnail, duration, and platform info.
+- **Facebook Photo Extraction** — Extract all photos from a Facebook post (album or single) and download them individually.
+- **Admin Console** — Manage `cookies.txt` and view live download/streaming logs via a password-protected dashboard (`/admin`).
+- **Photo Proxy/Stream** — Stream Facebook photos through the server to bypass CORS, perfect for use in external editor apps.
+- **Download Video** — Downloads the best available MP4 quality.
+- **Download Audio** — Extracts and downloads audio as MP3 at the highest bitrate.
+- **Multi-platform support** — YouTube, TikTok, Facebook, and [1000+ sites supported by yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
+- **Animated UI** — Smooth transitions with Framer Motion and a glassmorphism dark theme.
 
 ---
 
@@ -33,52 +35,33 @@ A sleek, modern web app built with **Next.js** that lets you download video and 
 All API routes live under `/api/` and are Next.js Route Handlers.
 
 ### `GET /api/info`
-Fetches metadata for a given URL.
-
-| Param | Type   | Description        |
-|-------|--------|--------------------|
-| `url` | string | The media page URL |
-
-**Response:** Full `yt-dlp` JSON output (title, thumbnail, duration, formats, etc.)
+Fetches metadata for a given URL. Supports `cookies.txt` for gated content.
 
 ---
 
 ### `GET /api/download`
-Streams media directly to the browser as a download.
-
-| Param  | Type   | Description                      |
-|--------|--------|----------------------------------|
-| `url`  | string | The media page URL               |
-| `type` | string | `video` (MP4) or `audio` (MP3)   |
-
-- `audio` → MP3, best bitrate
-- `video` → MP4, best quality
+Streams media directly to the browser as a download. Logs activity to Admin Console.
 
 ---
 
-### `GET /api/links`
-Returns a cleaned list of all available direct download links grouped by type.
+### `GET /api/facebook/photos`
+Extracts photo URLs from a Facebook post.
+- **Param:** `url` (Facebook post URL)
+- **Response:** List of photo objects with individual `streamUrl` and `downloadUrl`.
 
-| Param | Type   | Description        |
-|-------|--------|--------------------|
-| `url` | string | The media page URL |
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "metadata": { "title": "...", "thumbnail": "...", "duration": 123, "platform": "Youtube" },
-  "availableFormats": {
-    "videos": [{ "quality": "1080p", "resolution": "1920x1080", "fps": 30, "size": "45.2 MB", "url": "..." }],
-    "audios": [{ "quality": "128 kbps", "ext": "webm", "size": "3.1 MB", "url": "..." }]
-  }
-}
-```
+### `GET /api/photo/stream`
+Proxies any image URL to bypass CORS or force a download.
+- **Params:** 
+    - `url`: The encoded image URL.
+    - `download`: Set to `1` to force a file download.
+- **Usage:** `<img src="/api/photo/stream?url=...">`
 
 ---
 
 ### `GET /api/search`
-Searches YouTube **or Facebook** and returns video results without needing an API key.
+Searches YouTube or Facebook and returns video results without needing an API key.
 
 | Param      | Type   | Default     | Description                               |
 |------------|--------|-------------|-------------------------------------------|
@@ -127,38 +110,33 @@ Proxies media from any supported platform through the server for **in-browser pl
 
 ---
 
+### `GET /api/admin/logs`
+(Protected) Returns the last 200 download/stream activity logs.
+
+---
+
+### `POST /api/admin/cookie`
+(Protected) Updates the `cookies.txt` file in the project root.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - **Node.js** v18+
-- **yt-dlp** must be installed and accessible on your system PATH — [Download yt-dlp](https://github.com/yt-dlp/yt-dlp#installation)
-- **FFmpeg** (required for audio extraction) — [Download FFmpeg](https://ffmpeg.org/download.html)
+- **yt-dlp** and **FFmpeg** installed on your system.
 
 ### Installation
-
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd yt-dl
-
-# Install dependencies
-npm install
-```
+1. Clone the repo and run `npm install`.
+2. Create a `.env` file:
+   ```env
+   ADMIN_PASSWORD=your_secure_password
+   ```
+3. (Optional) Go to `/admin` using your password to set up `cookies.txt` for Facebook/Age-restricted content.
 
 ### Development
-
 ```bash
 npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Production Build
-
-```bash
-npm run build
-npm run start
 ```
 
 ---
@@ -169,7 +147,11 @@ npm run start
 yt-dl/
 ├── src/
 │   ├── app/
+│   │   ├── admin/             # Admin Dashboard UI
 │   │   ├── api/
+│   │   │   ├── admin/         # Cookie & Log management
+│   │   │   ├── facebook/      # FB photo extraction
+│   │   │   ├── photo/stream/  # Image proxy/CORS bypass
 │   │   │   ├── download/route.ts   # Stream media as file download
 │   │   │   ├── info/route.ts       # Fetch video metadata
 │   │   │   ├── links/route.ts      # List all available format links
@@ -177,9 +159,12 @@ yt-dl/
 │   │   │   └── stream/route.ts     # Proxy stream for in-browser playback
 │   │   ├── globals.css             # Global styles & Tailwind config
 │   │   ├── layout.tsx              # Root layout
-│   │   └── page.tsx                # Main downloader UI
+│   │   └── page.tsx           # Main Downloader UI
 │   └── lib/
-│       └── utils.ts                # Utility helpers (cn, etc.)
+│       ├── logger.ts          # Shared log buffer logic
+│       └── utils.ts           # UI utilities
+├── cookies.txt                # Managed via Admin Console
+├── .env                       # Secrets (ADMIN_PASSWORD)
 ├── package.json
 ├── next.config.ts
 └── tsconfig.json
@@ -188,5 +173,4 @@ yt-dl/
 ---
 
 ## ⚠️ Legal Disclaimer
-
-This tool is intended for **personal use only**. Downloading copyrighted content without permission may violate the terms of service of the respective platforms and applicable copyright laws. Use responsibly.
+For personal use only. Respect platform terms of service and copyright laws.

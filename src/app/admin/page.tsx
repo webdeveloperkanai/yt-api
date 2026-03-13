@@ -1,0 +1,500 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Shield, Cookie, Activity, Trash2, RefreshCw, Check, X,
+  AlertCircle, Eye, EyeOff, ChevronDown, Server, Download,
+  Radio, Image as ImageIcon, LogOut, Settings
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface LogEntry {
+  id: string;
+  timestamp: string;
+  type: "download-video" | "download-audio" | "stream" | "photo";
+  url: string;
+  status: "started" | "completed" | "error";
+  detail?: string;
+  durationMs?: number;
+}
+
+interface CookieStatus {
+  exists: boolean;
+  lineCount: number;
+  preview: string | null;
+  updatedAt?: string;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
+function typeIcon(type: LogEntry["type"]) {
+  if (type === "download-video") return <Download className="w-3.5 h-3.5 text-cyan-400" />;
+  if (type === "download-audio") return <Download className="w-3.5 h-3.5 text-purple-400" />;
+  if (type === "stream") return <Radio className="w-3.5 h-3.5 text-green-400" />;
+  if (type === "photo") return <ImageIcon className="w-3.5 h-3.5 text-yellow-400" />;
+}
+
+function statusBadge(status: LogEntry["status"]) {
+  const cls = status === "completed"
+    ? "bg-green-500/20 text-green-400 border-green-500/30"
+    : status === "error"
+    ? "bg-red-500/20 text-red-400 border-red-500/30"
+    : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+  return (
+    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide", cls)}>
+      {status}
+    </span>
+  );
+}
+
+// ─── Main Admin Page ──────────────────────────────────────────────────────────
+export default function AdminPage() {
+  const [password, setPassword] = useState("");
+  const [authed, setAuthed] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [activeTab, setActiveTab] = useState<"cookies" | "logs" | "system">("cookies");
+
+  // Cookies state
+  const [cookieStatus, setCookieStatus] = useState<CookieStatus | null>(null);
+  const [cookieContent, setCookieContent] = useState("");
+  const [cookieLoading, setCookieLoading] = useState(false);
+  const [cookieSaving, setCookieSaving] = useState(false);
+  const [cookieMsg, setCookieMsg] = useState("");
+
+  // Logs state
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logFilter, setLogFilter] = useState("all");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // System info
+  const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
+
+  const headers = { "x-admin-password": password };
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    // Quick test by hitting the cookie endpoint
+    fetch("/api/admin/cookie", { headers }).then(async (res) => {
+      if (res.status === 401) {
+        setAuthError("Wrong password");
+      } else {
+        setAuthed(true);
+        setAuthError("");
+        loadCookies();
+        loadLogs();
+      }
+    }).catch(() => setAuthError("Connection error"));
+  };
+
+  // ── Cookies ───────────────────────────────────────────────────────────────
+  const loadCookies = useCallback(async () => {
+    setCookieLoading(true);
+    try {
+      const res = await fetch("/api/admin/cookie", { headers });
+      const data = await res.json();
+      setCookieStatus(data);
+    } finally {
+      setCookieLoading(false);
+    }
+  }, [password]);
+
+  const saveCookies = async () => {
+    if (!cookieContent.trim()) return;
+    setCookieSaving(true);
+    const res = await fetch("/api/admin/cookie", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: cookieContent }),
+    });
+    const data = await res.json();
+    setCookieSaving(false);
+    if (data.success) {
+      setCookieMsg(`✓ Saved — ${data.lineCount} cookie entries`);
+      setCookieContent("");
+      loadCookies();
+    } else {
+      setCookieMsg(`✗ Error: ${data.error}`);
+    }
+    setTimeout(() => setCookieMsg(""), 4000);
+  };
+
+  const deleteCookies = async () => {
+    if (!confirm("Delete cookies.txt?")) return;
+    await fetch("/api/admin/cookie", { method: "DELETE", headers });
+    loadCookies();
+  };
+
+  // ── Logs ─────────────────────────────────────────────────────────────────
+  const loadLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const filter = logFilter !== "all" ? `&type=${logFilter}` : "";
+      const res = await fetch(`/api/admin/logs?limit=100${filter}`, { headers });
+      const data = await res.json();
+      if (data.success) setLogs(data.logs);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [password, logFilter]);
+
+  const clearLogs = async () => {
+    if (!confirm("Clear all logs?")) return;
+    await fetch("/api/admin/logs", { method: "DELETE", headers });
+    setLogs([]);
+  };
+
+  // Auto refresh logs every 10s
+  useEffect(() => {
+    if (!authed || !autoRefresh) return;
+    const id = setInterval(loadLogs, 10000);
+    return () => clearInterval(id);
+  }, [authed, autoRefresh, loadLogs]);
+
+  useEffect(() => {
+    if (authed) loadLogs();
+  }, [logFilter, authed]);
+
+  // ─── Login Screen ─────────────────────────────────────────────────────────
+  if (!authed) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px] pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, type: "spring", bounce: 0.3 }}
+          className="w-full max-w-sm"
+        >
+          <div className="glass-card p-8">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-cyan-600 flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30">
+                <Shield className="w-7 h-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white">Admin Console</h1>
+              <p className="text-gray-400 text-sm mt-1">Enter your admin password</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="relative">
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-500 outline-none focus:border-purple-500/50 focus:bg-white/8 transition-all pr-12"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                >
+                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {authError && (
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-semibold rounded-xl py-3 hover:opacity-90 transition-opacity"
+              >
+                Login
+              </button>
+            </form>
+          </div>
+        </motion.div>
+      </main>
+    );
+  }
+
+  // ─── Dashboard ────────────────────────────────────────────────────────────
+  const tabs = [
+    { id: "cookies", label: "Cookie Manager", icon: Cookie },
+    { id: "logs", label: "Activity Logs", icon: Activity },
+    { id: "system", label: "System", icon: Server },
+  ] as const;
+
+  return (
+    <main className="min-h-screen relative overflow-hidden p-4 sm:p-8">
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/10 blur-[120px] pointer-events-none" />
+
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Settings className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">Admin Console</h1>
+              <p className="text-xs text-gray-500">yt-dl Management</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <a href="/" className="text-sm text-gray-400 hover:text-white transition-colors">← Back to App</a>
+            <button
+              onClick={() => { setAuthed(false); setPassword(""); }}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-red-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            { label: "Cookie Status", value: cookieStatus?.exists ? `${cookieStatus.lineCount} entries` : "Not Set", color: cookieStatus?.exists ? "text-green-400" : "text-red-400" },
+            { label: "Total Logs", value: logs.length.toString(), color: "text-cyan-400" },
+            { label: "Errors", value: logs.filter(l => l.status === "error").length.toString(), color: "text-red-400" },
+          ].map((stat) => (
+            <div key={stat.label} className="glass-card p-4 text-center">
+              <p className={cn("text-2xl font-bold mb-1", stat.color)}>{stat.value}</p>
+              <p className="text-xs text-gray-500">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-1 p-1.5 rounded-2xl glass border border-white/10 mb-6 w-fit">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300",
+                activeTab === tab.id ? "bg-white text-black shadow-lg" : "text-gray-400 hover:text-white"
+              )}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {/* ── COOKIE TAB ── */}
+          {activeTab === "cookies" && (
+            <motion.div key="cookies" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }} className="space-y-6">
+
+              {/* Current status */}
+              <div className="glass-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-semibold flex items-center gap-2"><Cookie className="w-4 h-4 text-yellow-400" /> Current cookies.txt</h2>
+                  <button onClick={loadCookies} className="text-gray-400 hover:text-white transition-colors">
+                    <RefreshCw className={cn("w-4 h-4", cookieLoading && "animate-spin")} />
+                  </button>
+                </div>
+
+                {cookieStatus ? (
+                  cookieStatus.exists ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                        <span className="text-green-400 text-sm font-medium">Active — {cookieStatus.lineCount} cookie entries</span>
+                        {cookieStatus.updatedAt && <span className="text-gray-500 text-xs ml-auto">{timeAgo(cookieStatus.updatedAt)}</span>}
+                      </div>
+                      {cookieStatus.preview && (
+                        <pre className="text-xs text-gray-400 bg-white/5 p-3 rounded-lg overflow-x-auto border border-white/5 font-mono">
+                          {cookieStatus.preview}
+                          <span className="text-gray-600">  ...and more</span>
+                        </pre>
+                      )}
+                      <button onClick={deleteCookies} className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm transition-colors mt-2">
+                        <Trash2 className="w-4 h-4" /> Delete cookies.txt
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <span className="w-2 h-2 rounded-full bg-gray-600 inline-block" />
+                      No cookies.txt found. Paste your Netscape cookie file below.
+                    </div>
+                  )
+                ) : (
+                  <div className="text-gray-600 text-sm">Loading...</div>
+                )}
+              </div>
+
+              {/* Paste new cookies */}
+              <div className="glass-card p-6">
+                <h2 className="text-white font-semibold mb-1 flex items-center gap-2"><Cookie className="w-4 h-4 text-purple-400" /> Set New Cookies</h2>
+                <p className="text-gray-500 text-xs mb-4">
+                  Export cookies from your browser using <strong className="text-gray-400">EditThisCookie</strong> or similar extension in Netscape format, then paste here.
+                </p>
+                <textarea
+                  value={cookieContent}
+                  onChange={(e) => setCookieContent(e.target.value)}
+                  placeholder={"# Netscape HTTP Cookie File\n.facebook.com\tTRUE\t/\tFALSE\t...\t...\t..."}
+                  rows={10}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-xs font-mono placeholder:text-gray-700 outline-none focus:border-purple-500/50 transition-all resize-y"
+                />
+                <div className="flex items-center gap-3 mt-3">
+                  <button
+                    onClick={saveCookies}
+                    disabled={cookieSaving || !cookieContent.trim()}
+                    className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-cyan-600 text-white font-semibold rounded-xl px-6 py-2.5 text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {cookieSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {cookieSaving ? "Saving..." : "Save cookies.txt"}
+                  </button>
+                  {cookieMsg && (
+                    <span className={cn("text-sm", cookieMsg.startsWith("✓") ? "text-green-400" : "text-red-400")}>{cookieMsg}</span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── LOGS TAB ── */}
+          {activeTab === "logs" && (
+            <motion.div key="logs" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }} className="space-y-4">
+              {/* Toolbar */}
+              <div className="glass-card p-4 flex flex-wrap items-center gap-3">
+                <select
+                  value={logFilter}
+                  onChange={(e) => setLogFilter(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-cyan-500/50 transition-all"
+                >
+                  <option value="all">All Types</option>
+                  <option value="download-video">Video Downloads</option>
+                  <option value="download-audio">Audio Downloads</option>
+                  <option value="stream">Streams</option>
+                  <option value="photo">Photos</option>
+                </select>
+
+                <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer select-none ml-auto">
+                  <div
+                    onClick={() => setAutoRefresh(!autoRefresh)}
+                    className={cn("w-9 h-5 rounded-full transition-all relative", autoRefresh ? "bg-green-500" : "bg-white/10")}
+                  >
+                    <span className={cn("absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all", autoRefresh ? "left-4" : "left-0.5")} />
+                  </div>
+                  Auto-refresh (10s)
+                </label>
+
+                <button onClick={loadLogs} className="text-gray-400 hover:text-white transition-colors">
+                  <RefreshCw className={cn("w-4 h-4", logsLoading && "animate-spin")} />
+                </button>
+
+                {logs.length > 0 && (
+                  <button onClick={clearLogs} className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm transition-colors">
+                    <Trash2 className="w-4 h-4" /> Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Table */}
+              <div className="glass-card overflow-hidden">
+                {logs.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    <Activity className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p>No activity logs yet</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/5 text-gray-500 text-xs uppercase tracking-wide">
+                          <th className="px-4 py-3 text-left">Type</th>
+                          <th className="px-4 py-3 text-left">URL</th>
+                          <th className="px-4 py-3 text-left">Status</th>
+                          <th className="px-4 py-3 text-left">Detail</th>
+                          <th className="px-4 py-3 text-left">Duration</th>
+                          <th className="px-4 py-3 text-left">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {logs.map((log, i) => (
+                          <tr key={log.id} className={cn("border-b border-white/5 hover:bg-white/3 transition-colors", i % 2 === 0 ? "bg-white/[0.01]" : "")}>
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1.5">
+                                {typeIcon(log.type)}
+                                <span className="text-xs text-gray-400 whitespace-nowrap">{log.type.replace("-", " ")}</span>
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 max-w-[200px]">
+                              <span className="text-gray-300 text-xs truncate block" title={log.url}>{log.url}</span>
+                            </td>
+                            <td className="px-4 py-3">{statusBadge(log.status)}</td>
+                            <td className="px-4 py-3 text-xs text-gray-400">{log.detail || "—"}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500">
+                              {log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{timeAgo(log.timestamp)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── SYSTEM TAB ── */}
+          {activeTab === "system" && (
+            <motion.div key="system" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.25 }} className="space-y-4">
+              <div className="glass-card p-6">
+                <h2 className="text-white font-semibold mb-6 flex items-center gap-2"><Server className="w-4 h-4 text-cyan-400" /> System Info</h2>
+                <div className="space-y-4">
+                  {[
+                    { label: "Cookie File", value: cookieStatus?.exists ? `✓ Active (${cookieStatus.lineCount} entries)` : "✗ Not Set", color: cookieStatus?.exists ? "text-green-400" : "text-red-400" },
+                    { label: "Node.js Version", value: process.version ?? "Unknown", color: "text-cyan-400" },
+                    { label: "Environment", value: process.env.NODE_ENV ?? "unknown", color: "text-purple-400" },
+                    { label: "Photo Stream Endpoint", value: "/api/photo/stream?url=<encoded-url>", color: "text-yellow-400" },
+                    { label: "Facebook Photos API", value: "/api/facebook/photos?url=<post-url>", color: "text-blue-400" },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-start justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                      <span className="text-gray-500 text-sm">{row.label}</span>
+                      <span className={cn("text-sm font-mono text-right max-w-[60%]", row.color)}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* API Reference */}
+              <div className="glass-card p-6">
+                <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-yellow-400" /> Photo Stream API (for Editor)</h2>
+                <p className="text-gray-400 text-sm mb-4">Use this endpoint to embed Facebook photos in your editor app without CORS issues:</p>
+                <div className="bg-black/50 rounded-xl p-4 border border-white/5 font-mono text-xs space-y-2">
+                  <p className="text-cyan-400"># Stream / embed photo inline</p>
+                  <p className="text-white">GET /api/photo/stream?url={"<encoded-facebook-image-url>"}</p>
+                  <p className="text-cyan-400 mt-3"># Force download</p>
+                  <p className="text-white">GET /api/photo/stream?url={"<encoded-facebook-image-url>"}&download=1</p>
+                  <p className="text-cyan-400 mt-3"># Get all photos from a Facebook post</p>
+                  <p className="text-white">GET /api/facebook/photos?url={"<encoded-facebook-post-url>"}</p>
+                  <p className="text-gray-500 mt-3"># Each photo in the response includes a ready-to-use streamUrl</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </main>
+  );
+}
