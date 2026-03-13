@@ -1,6 +1,7 @@
 import youtubedl from 'youtube-dl-exec';
 import { NextRequest, NextResponse } from 'next/server';
-
+import path from 'path';
+import fs from 'fs';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -10,15 +11,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 });
   }
 
+  const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+  const hasCookies = fs.existsSync(cookiesPath);
+
+  // Use correct referer based on URL
+  const isFacebook = url.includes('facebook.com') || url.includes('fb.com') || url.includes('fb.watch');
+  const referer = isFacebook ? 'https://www.facebook.com/' : 'https://www.youtube.com/';
+
   try {
     const info = await youtubedl(url, {
       dumpSingleJson: true,
       noCheckCertificates: true,
       noWarnings: true,
       preferFreeFormats: true,
+      ...(hasCookies ? { cookies: cookiesPath } : {}),
       addHeader: [
-        'referer:youtube.com',
-        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+        `referer:${referer}`,
+        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
       ]
     });
 

@@ -5,6 +5,32 @@ import fs from 'fs';
 const COOKIE_PATH = path.join(process.cwd(), 'cookies.txt');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
+// Auto-detect and convert EditThisCookie JSON → Netscape format
+function ensureNetscape(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) return raw; // already Netscape
+    try {
+        const parsed = JSON.parse(trimmed);
+        const arr: any[] = Array.isArray(parsed) ? parsed : [parsed];
+        const lines = ['# Netscape HTTP Cookie File', '# Auto-converted from JSON by yt-dl'];
+        for (const c of arr) {
+            const domain = c.domain ?? c.Domain ?? '';
+            const flag = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+            const path = c.path ?? c.Path ?? '/';
+            const secure = (c.secure ?? c.Secure ?? false) ? 'TRUE' : 'FALSE';
+            const expires = c.expirationDate
+                ? Math.round(c.expirationDate).toString()
+                : (c.expires ?? '0');
+            const name = c.name ?? c.Name ?? '';
+            const value = c.value ?? c.Value ?? '';
+            lines.push(`${domain}\t${flag}\t${path}\t${secure}\t${expires}\t${name}\t${value}`);
+        }
+        return lines.join('\n');
+    } catch {
+        return raw; // not valid JSON either — pass through
+    }
+}
+
 function checkAuth(req: NextRequest): boolean {
     const auth = req.headers.get('x-admin-password');
     return auth === ADMIN_PASSWORD;
@@ -55,10 +81,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'content field is required' }, { status: 400 });
         }
 
-        fs.writeFileSync(COOKIE_PATH, content, 'utf-8');
-        const lines = content.split('\n').filter((l: string) => l.trim() && !l.startsWith('#'));
+        // Auto-convert JSON → Netscape if needed
+        const netscapeContent = ensureNetscape(content);
 
-        return NextResponse.json({ success: true, lineCount: lines.length });
+        fs.writeFileSync(COOKIE_PATH, netscapeContent, 'utf-8');
+        const lines = netscapeContent.split('\n').filter((l: string) => l.trim() && !l.startsWith('#'));
+        const wasConverted = netscapeContent !== content;
+
+        return NextResponse.json({ success: true, lineCount: lines.length, converted: wasConverted });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }

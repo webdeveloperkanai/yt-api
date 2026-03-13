@@ -274,6 +274,26 @@ export default function Home() {
     } catch { return rawUrl; }
   };
 
+  const fetchPhotosLogic = async (targetUrl: string, fallbackErrorMsg?: string) => {
+    setLoadingPhotos(true);
+    setPhotoError("");
+    setPhotoData(null);
+    try {
+      const res = await fetch(`/api/facebook/photos?url=${encodeURIComponent(targetUrl)}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to extract photos");
+      if (data.photoCount === 0) throw new Error("No photos found in this post.");
+      setPhotoData({ photos: data.photosWithStream, title: data.title });
+      setShowPhotoGallery(true);
+      if (fallbackErrorMsg) setDownloadError(""); // Clear video error if photos succeeded
+    } catch (err: any) {
+      setPhotoError(err.message);
+      if (fallbackErrorMsg) setDownloadError(fallbackErrorMsg); // Show original video error if both failed
+    } finally {
+      setLoadingPhotos(false);
+    }
+  };
+
   const handleFetchInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
@@ -284,13 +304,19 @@ export default function Home() {
     setPhotoError("");
     const cleanedUrl = formatUrl(url.trim());
     setUrl(cleanedUrl);
+    
     try {
       const res = await fetch(`/api/info?url=${encodeURIComponent(cleanedUrl)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch video info");
       setVideoInfo(data);
     } catch (err: any) {
-      setDownloadError(err.message);
+      if (isFacebookUrl(cleanedUrl) && (err.message.includes("404") || err.message.includes("Unable to download webpage"))) {
+        setDownloadError("Checking for photos...");
+        await fetchPhotosLogic(cleanedUrl, err.message);
+      } else {
+        setDownloadError(err.message);
+      }
     } finally {
       setLoadingInfo(false);
     }
@@ -298,21 +324,7 @@ export default function Home() {
 
   const handleFetchPhotos = async () => {
     if (!url) return;
-    setLoadingPhotos(true);
-    setPhotoError("");
-    setPhotoData(null);
-    try {
-      const res = await fetch(`/api/facebook/photos?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Failed to extract photos");
-      if (data.photoCount === 0) throw new Error("No photos found in this post. It may be a video-only post.");
-      setPhotoData({ photos: data.photosWithStream, title: data.title });
-      setShowPhotoGallery(true);
-    } catch (err: any) {
-      setPhotoError(err.message);
-    } finally {
-      setLoadingPhotos(false);
-    }
+    await fetchPhotosLogic(url);
   };
 
   const handleDownload = async (type: "video" | "audio") => {

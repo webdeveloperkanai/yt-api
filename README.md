@@ -34,89 +34,73 @@ A sleek, modern web app built with **Next.js** that lets you download video and 
 
 All API routes live under `/api/` and are Next.js Route Handlers.
 
-### `GET /api/info`
-Fetches metadata for a given URL. Supports `cookies.txt` for gated content.
+### 🎥 Media Info & Discovery
 
----
+#### `GET /api/info`
+Fetches basic metadata (title, thumbnail, duration) for any supported URL.
+- **Param:** `url` (Page URL)
 
-### `GET /api/download`
-Streams media directly to the browser as a download. Logs activity to Admin Console.
+#### `GET /api/links`
+Returns a cleaned-up list of direct MP4 and MP3 download links categorized by quality/bitrate.
+- **Param:** `url` (Page URL)
 
----
+#### `GET /api/raw`
+Returns the complete raw format data from `yt-dlp`, including every available stream URL.
+- **Param:** `url` (Page URL)
 
-### `GET /api/facebook/photos`
-Extracts photo URLs from a Facebook post.
-- **Param:** `url` (Facebook post URL)
-- **Response:** List of photo objects with individual `streamUrl` and `downloadUrl`.
-
----
-
-### `GET /api/photo/stream`
-Proxies any image URL to bypass CORS or force a download.
+#### `GET /api/search`
+Searches YouTube or Facebook videos without needing an API key.
 - **Params:** 
-    - `url`: The encoded image URL.
-    - `download`: Set to `1` to force a file download.
-- **Usage:** `<img src="/api/photo/stream?url=...">`
+    - `q`: Search query string.
+    - `limit`: Number of results (default `10`).
+    - `platform`: `youtube` (default) or `facebook`.
 
 ---
 
-### `GET /api/search`
-Searches YouTube or Facebook and returns video results without needing an API key.
+### 📥 Downloading & Streaming
 
-| Param      | Type   | Default     | Description                               |
-|------------|--------|-------------|-------------------------------------------|
-| `q`        | string | —           | Search query                              |
-| `limit`    | number | `10`        | Number of results to return               |
-| `platform` | string | `youtube`   | Platform to search: `youtube` or `facebook` |
+#### `GET /api/download`
+Streams media directly to the browser as a forced file download.
+- **Params:** 
+    - `url`: Media page URL.
+    - `type`: `video` (MP4) or `audio` (MP3).
 
-**Response:**
-```json
-{
-  "success": true,
-  "query": "lofi music",
-  "count": 10,
-  "results": [
-    {
-      "id": "abc123",
-      "url": "https://www.youtube.com/watch?v=abc123",
-      "streamUrl": "/api/stream?url=https%3A%2F%2F...",
-      "title": "Lofi Hip Hop Radio",
-      "thumbnails": [{ "url": "..." }],
-      "duration": 3600,
-      "view_count": 1000000,
-      "channel": { "id": "...", "name": "Lofi Girl", "url": "..." },
-      "platform": "youtube"
-    }
-  ]
-}
-```
+#### `GET /api/stream`
+Proxies media through the server for **in-browser playback** (bypasses CORS/encryption).
+- **Params:** 
+    - `url`: Media page URL.
+    - `type`: `video` or `audio`.
+- **Usage:** `<video src="/api/stream?url=...">`
 
-> Each result includes a `streamUrl` that can be used directly as the `src` in a `<video>` or `<audio>` element for in-browser playback.
+#### `GET /api/photo/stream`
+Proxies image URLs to bypass CORS or force a download.
+- **Params:** 
+    - `url`: Encoded image URL.
+    - `download`: Set to `1` to force download.
 
 ---
 
-### `GET /api/stream`
-Proxies media from any supported platform through the server for **in-browser playback** (no forced download).
+### 👥 Facebook Specific
 
-| Param  | Type   | Default  | Description                       |
-|--------|--------|----------|-----------------------------------|
-| `url`  | string | —        | The media page URL                |
-| `type` | string | `video`  | `video` (MP4) or `audio` (MP3)    |
+#### `GET /api/fb/photo` (NEW ✨)
+Robustly extracts the main high-resolution photo from a Facebook post using an automated browser (Playwright).
+- **Param:** `url` (Facebook share/post URL)
+- **Wait Time:** ~4 seconds to ensure dynamic content loads.
 
-**Usage example:**
-```html
-<video controls src="/api/stream?url=https%3A%2F%2Fyoutube.com%2Fwatch%3Fv%3DXXX"></video>
-```
-
----
-
-### `GET /api/admin/logs`
-(Protected) Returns the last 200 download/stream activity logs.
+#### `GET /api/facebook/photos`
+Extracts all photo URLs found in a Facebook album or post using lightweight scraping.
+- **Param:** `url` (Facebook post URL)
+- **Response:** List of photo objects with stream/download proxy URLs.
 
 ---
 
-### `POST /api/admin/cookie`
-(Protected) Updates the `cookies.txt` file in the project root.
+### 🛠️ Admin & Management
+
+#### `GET /api/admin/logs`
+(Protected) Returns a JSON array of the latest download and streaming activity logs.
+
+#### `POST /api/admin/cookie`
+(Protected) Updates the `cookies.txt` file on the server. Used for accessing private/age-restricted content.
 
 ---
 
@@ -151,10 +135,12 @@ yt-dl/
 │   │   ├── api/
 │   │   │   ├── admin/         # Cookie & Log management
 │   │   │   ├── facebook/      # FB photo extraction
+│   │   │   ├── fb/            # Robust FB photo extraction (Playwright)
 │   │   │   ├── photo/stream/  # Image proxy/CORS bypass
 │   │   │   ├── download/route.ts   # Stream media as file download
 │   │   │   ├── info/route.ts       # Fetch video metadata
 │   │   │   ├── links/route.ts      # List all available format links
+│   │   │   ├── raw/route.ts        # Raw yt-dlp format data
 │   │   │   ├── search/route.ts     # YouTube & Facebook search (no API key)
 │   │   │   └── stream/route.ts     # Proxy stream for in-browser playback
 │   │   ├── globals.css             # Global styles & Tailwind config
